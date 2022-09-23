@@ -1,0 +1,11 @@
+## Log level, options are: panic, fatal, error, warn, info, debug or trace
+log_level: debug
+
+## JSON output file, leave empty to disable JSON output.
+output: "/tmp/tcprobe.json"
+
+## BTF information for the current kernel in .tar.xz format (required only if TCProbe isn't able to locate it by itself)
+vmlinux: ""
+
+## URL to the local datadog logs agent
+datadog_logs_url: "127.0.0.1:10518"
