@@ -31,11 +31,11 @@
         if (elem == NULL) {                                                                                            \
             return NULL;                                                                                               \
         }                                                                                                              \
-        bpf_map_delete_elem(&NAME##_cache, &key);                                                                          \
+        bpf_map_delete_elem(&NAME##_cache, &key);                                                                      \
         return elem;                                                                                                   \
     };                                                                                                                 \
                                                                                                                        \
-    __attribute__((always_inline)) int cache_##NAME(struct NAME##_t *entry) {                                          \
+    __attribute__((always_inline)) int put_##NAME(struct NAME##_t *entry) {                                            \
         u64 key = bpf_get_current_pid_tgid();                                                                          \
         return bpf_map_update_elem(&NAME##_cache, &key, entry, BPF_ANY);                                               \
     };                                                                                                                 \

@@ -12,6 +12,7 @@ enum event_type
 {
     EVENT_ANY = 0,
     EVENT_QDISC,
+    EVENT_FILTER,
     EVENT_MAX, // has to be the last one
 };
 

@@ -136,15 +136,47 @@ func (tp *TCProbe) defaultEventHandler(data []byte) error {
 	}
 	cursor += read
 
-	switch event.Kernel.Type {
-	case events.QDiscEventType:
-		if read, err = event.QDiscEvent.UnmarshallBinary(data[cursor:]); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unknown event type: %s", event.Kernel.Type)
+	// unmarshall network interface context
+	read, err = event.NetworkInterface.UnmarshallBinary(data[cursor:])
+	if err != nil {
+		return err
 	}
 	cursor += read
+
+	// unmarshall netlink interface context
+	read, err = event.NetlinkMessage.UnmarshallBinary(data[cursor:])
+	if err != nil {
+		return err
+	}
+	cursor += read
+
+	if event.Kernel.Type <= events.UnknownEventType || event.Kernel.Type > events.MaxEventType {
+		return fmt.Errorf("unknown event type: %s", event.Kernel.Type)
+	}
+
+	switch event.Kernel.Type {
+	case events.QDiscEventType, events.FilterEventType:
+		if read, err = event.QDisc.UnmarshallBinary(data[cursor:]); err != nil {
+			return err
+		}
+		cursor += read
+	}
+
+	switch event.Kernel.Type {
+	case events.FilterEventType:
+		if read, err = event.Chain.UnmarshallBinary(data[cursor:]); err != nil {
+			return err
+		}
+		cursor += read
+		if read, err = event.Block.UnmarshallBinary(data[cursor:]); err != nil {
+			return err
+		}
+		cursor += read
+		if read, err = event.Filter.UnmarshallBinary(data[cursor:]); err != nil {
+			return err
+		}
+		cursor += read
+	}
 
 	// write to output file
 	if tp.outputFile != nil {

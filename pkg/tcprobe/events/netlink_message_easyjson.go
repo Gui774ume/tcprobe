@@ -17,7 +17,7 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.Lexer, out *QDiscSerializer) {
+func easyjson408a5efDecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.Lexer, out *NetlinkMessageSerializer) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -26,7 +26,7 @@ func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 		in.Skip()
 		return
 	}
-	out.QDisc = new(QDisc)
+	out.NetlinkMessage = new(NetlinkMessage)
 	in.Delim('{')
 	for !in.IsDelim('}') {
 		key := in.UnsafeFieldName(false)
@@ -37,12 +37,12 @@ func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 			continue
 		}
 		switch key {
-		case "handle":
-			out.Handle = Handle(in.Uint32())
-		case "parent":
-			out.Parent = Handle(in.Uint32())
-		case "qdisc_id":
-			out.QDiscID = string(in.String())
+		case "flags":
+			out.Flags = string(in.String())
+		case "type":
+			out.Type = RoutingMessageType(in.Uint16())
+		case "error":
+			out.Error = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -53,34 +53,34 @@ func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 		in.Consumed()
 	}
 }
-func easyjson67024250EncodeGithubComGui774umeTcprobePkgTcprobeEvents(out *jwriter.Writer, in QDiscSerializer) {
+func easyjson408a5efEncodeGithubComGui774umeTcprobePkgTcprobeEvents(out *jwriter.Writer, in NetlinkMessageSerializer) {
 	out.RawByte('{')
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"handle\":"
+		const prefix string = ",\"flags\":"
 		out.RawString(prefix[1:])
-		out.Raw((in.Handle).MarshalJSON())
+		out.String(string(in.Flags))
 	}
 	{
-		const prefix string = ",\"parent\":"
+		const prefix string = ",\"type\":"
 		out.RawString(prefix)
-		out.Raw((in.Parent).MarshalJSON())
+		out.Raw((in.Type).MarshalJSON())
 	}
-	{
-		const prefix string = ",\"qdisc_id\":"
+	if in.Error != "" {
+		const prefix string = ",\"error\":"
 		out.RawString(prefix)
-		out.String(string(in.QDiscID))
+		out.String(string(in.Error))
 	}
 	out.RawByte('}')
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
-func (v QDiscSerializer) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson67024250EncodeGithubComGui774umeTcprobePkgTcprobeEvents(w, v)
+func (v NetlinkMessageSerializer) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson408a5efEncodeGithubComGui774umeTcprobePkgTcprobeEvents(w, v)
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *QDiscSerializer) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(l, v)
+func (v *NetlinkMessageSerializer) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson408a5efDecodeGithubComGui774umeTcprobePkgTcprobeEvents(l, v)
 }

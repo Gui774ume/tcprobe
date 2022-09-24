@@ -18,7 +18,9 @@ limitations under the License.
 
 package events
 
-import "time"
+import (
+	"time"
+)
 
 // KernelEvent represents the default kernel event context
 type KernelEvent struct {
