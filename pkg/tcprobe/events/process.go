@@ -176,7 +176,7 @@ func (pc *ProcessContext) UnmarshalBinary(data []byte) (int, error) {
 	}
 
 	if len(data[cursor:]) < 16 {
-		return 0, fmt.Errorf("while parsing ProcessContext.PID: got len %d, needed %d: %w", len(data[cursor:]), 8, err)
+		return 0, fmt.Errorf("while parsing ProcessContext.PID: got len %d, needed %d: %w", len(data[cursor:]), 16, err)
 	}
 	pc.PID = ByteOrder.Uint32(data[cursor : cursor+4])
 	pc.TID = ByteOrder.Uint32(data[cursor+4 : cursor+8])

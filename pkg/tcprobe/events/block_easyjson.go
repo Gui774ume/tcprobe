@@ -17,7 +17,7 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.Lexer, out *QDiscSerializer) {
+func easyjson2ff71951DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.Lexer, out *BlockSerializer) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -26,7 +26,7 @@ func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 		in.Skip()
 		return
 	}
-	out.QDisc = new(QDisc)
+	out.Block = new(Block)
 	in.Delim('{')
 	for !in.IsDelim('}') {
 		key := in.UnsafeFieldName(false)
@@ -37,12 +37,10 @@ func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 			continue
 		}
 		switch key {
-		case "handle":
-			out.Handle = Handle(in.Uint32())
-		case "parent":
-			out.Parent = Handle(in.Uint32())
-		case "qdisc_id":
-			out.QDiscID = string(in.String())
+		case "index":
+			out.Index = uint32(in.Uint32())
+		case "classid":
+			out.Classid = Handle(in.Uint32())
 		default:
 			in.SkipRecursive()
 		}
@@ -53,34 +51,29 @@ func easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 		in.Consumed()
 	}
 }
-func easyjson67024250EncodeGithubComGui774umeTcprobePkgTcprobeEvents(out *jwriter.Writer, in QDiscSerializer) {
+func easyjson2ff71951EncodeGithubComGui774umeTcprobePkgTcprobeEvents(out *jwriter.Writer, in BlockSerializer) {
 	out.RawByte('{')
 	first := true
 	_ = first
 	{
-		const prefix string = ",\"handle\":"
+		const prefix string = ",\"index\":"
 		out.RawString(prefix[1:])
-		out.Raw((in.Handle).MarshalJSON())
+		out.Uint32(uint32(in.Index))
 	}
 	{
-		const prefix string = ",\"parent\":"
+		const prefix string = ",\"classid\":"
 		out.RawString(prefix)
-		out.Raw((in.Parent).MarshalJSON())
-	}
-	{
-		const prefix string = ",\"qdisc_id\":"
-		out.RawString(prefix)
-		out.String(string(in.QDiscID))
+		out.Raw((in.Classid).MarshalJSON())
 	}
 	out.RawByte('}')
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
-func (v QDiscSerializer) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson67024250EncodeGithubComGui774umeTcprobePkgTcprobeEvents(w, v)
+func (v BlockSerializer) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson2ff71951EncodeGithubComGui774umeTcprobePkgTcprobeEvents(w, v)
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
-func (v *QDiscSerializer) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson67024250DecodeGithubComGui774umeTcprobePkgTcprobeEvents(l, v)
+func (v *BlockSerializer) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson2ff71951DecodeGithubComGui774umeTcprobePkgTcprobeEvents(l, v)
 }

@@ -98,57 +98,34 @@ func allQDiscProbes() []*manager.Probe {
 	}
 }
 
-// QDiscEvent represents a QDisc event
-type QDiscEvent struct {
-	Netns               uint32             `json:"netns"`
-	IfIndex             uint32             `json:"ifindex"`
-	IfName              string             `json:"ifname"`
-	Handle              Handle             `json:"handle"`
-	Parent              Handle             `json:"parent"`
-	QDiscID             string             `json:"qdisc_id"`
-	NetlinkMessageType  RoutingMessageType `json:"netlink_message_type"`
-	NetlinkErrorMessage string             `json:"netlink_error_message,omitempty"`
-	netlinkMessageFlags uint16
+// QDisc represents a QDisc
+type QDisc struct {
+	Handle  Handle `json:"handle"`
+	Parent  Handle `json:"parent"`
+	QDiscID string `json:"qdisc_id"`
 }
 
 // UnmarshallBinary unmarshalls a binary representation of itself
-func (e *QDiscEvent) UnmarshallBinary(data []byte) (int, error) {
-	if len(data) < 56 {
+func (e *QDisc) UnmarshallBinary(data []byte) (int, error) {
+	if len(data) < 8+IfNameLen {
 		return 0, ErrNotEnoughData
 	}
-	e.Netns = ByteOrder.Uint32(data[0:4])
-	e.IfIndex = ByteOrder.Uint32(data[4:8])
-	e.IfName = NullTerminatedString(data[8 : 8+IfNameLen])
-	e.Handle = Handle(ByteOrder.Uint32(data[8+IfNameLen : 12+IfNameLen]))
-	e.Parent = Handle(ByteOrder.Uint32(data[12+IfNameLen : 16+IfNameLen]))
-	e.QDiscID = NullTerminatedString(data[16+IfNameLen : 16+2*IfNameLen])
-	e.NetlinkMessageType = RoutingMessageType(ByteOrder.Uint16(data[16+2*IfNameLen : 18+2*IfNameLen]))
-	e.netlinkMessageFlags = ByteOrder.Uint16(data[18+2*IfNameLen : 20+2*IfNameLen])
-	// padding 4 bytes
-	e.NetlinkErrorMessage = NullTerminatedString(data[24+2*IfNameLen:])
-	return 0, nil
+	e.Handle = Handle(ByteOrder.Uint32(data[0:4]))
+	e.Parent = Handle(ByteOrder.Uint32(data[4:8]))
+	e.QDiscID = NullTerminatedString(data[8 : 8+IfNameLen])
+	return 8 + IfNameLen, nil
 }
 
-// QDiscEventSerializer is used to serialize BPFEvent
+// QDiscSerializer is used to serialize BPFEvent
 // easyjson:json
-type QDiscEventSerializer struct {
-	*QDiscEvent
-	NetlinkMessageFlags string `json:"netlink_message_flags"`
+type QDiscSerializer struct {
+	*QDisc
 }
 
-// NewQDiscEventSerializer returns a new instance of QDiscEventSerializer
-func NewQDiscEventSerializer(e *QDiscEvent) *QDiscEventSerializer {
-	serializer := &QDiscEventSerializer{
-		QDiscEvent: e,
-	}
-
-	switch e.NetlinkMessageType {
-	case 36, 40, 44, 48: // RTM_NEWQDISC, RTM_NEWTCLASS, RTM_NEWTFILTER, RTM_NEWACTION
-		serializer.NetlinkMessageFlags = bitmaskU16ToString(e.netlinkMessageFlags, netlinkMessageNewFlagStrings)
-	case 37, 41, 45, 49: // RTM_DELQDISC, RTM_DELTCLASS, RTM_DELTFILTER, RTM_DELACTION
-		serializer.NetlinkMessageFlags = bitmaskU16ToString(e.netlinkMessageFlags, netlinkMessageDeleteFlagStrings)
-	case 38, 42, 46, 50: // RTM_GETQDISC, RTM_GETTCLASS, RTM_GETTFILTER, RTM_GETACTION
-		serializer.NetlinkMessageFlags = bitmaskU16ToString(e.netlinkMessageFlags, netlinkMessageGetFlagStrings)
+// NewQDiscSerializer returns a new instance of QDiscEventSerializer
+func NewQDiscSerializer(e *QDisc) *QDiscSerializer {
+	serializer := &QDiscSerializer{
+		QDisc: e,
 	}
 
 	return serializer

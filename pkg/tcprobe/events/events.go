@@ -34,8 +34,9 @@ const (
 
 // AllProbes returns all the probes
 func AllProbes() []*manager.Probe {
-	return append([]*manager.Probe{},
-		allQDiscProbes()...)
+	all := append([]*manager.Probe{}, allQDiscProbes()...)
+	all = append(all, allFilterProbes()...)
+	return all
 }
 
 // EventType describes the type of an event sent from the kernel
@@ -46,6 +47,8 @@ const (
 	UnknownEventType EventType = iota
 	// QDiscEventType is used to report qdisc events
 	QDiscEventType
+	// FilterEventType is used to report filter events
+	FilterEventType
 	// MaxEventType is used internally to get the maximum number of events.
 	MaxEventType
 )
@@ -54,6 +57,8 @@ func (t EventType) String() string {
 	switch t {
 	case QDiscEventType:
 		return "qdisc"
+	case FilterEventType:
+		return "filter"
 	default:
 		return fmt.Sprintf("EventType(%d)", t)
 	}
@@ -146,10 +151,15 @@ func (etl *EventTypeList) UnmarshalYAML(value *yaml.Node) error {
 
 // Event is used to parse the events sent from kernel space
 type Event struct {
-	Kernel  KernelEvent
-	Process ProcessContext
+	Kernel           KernelEvent
+	Process          ProcessContext
+	NetworkInterface NetworkInterface
+	NetlinkMessage   NetlinkMessage
 
-	QDiscEvent QDiscEvent
+	QDisc  QDisc
+	Chain  Chain
+	Block  Block
+	Filter Filter
 }
 
 // NewEvent returns a new Event instance
@@ -177,22 +187,37 @@ func (e Event) String() string {
 // EventSerializer is used to serialize Event
 // easyjson:json
 type EventSerializer struct {
-	*KernelEventSerializer    `json:"event,omitempty"`
-	*ProcessContextSerializer `json:"process,omitempty"`
+	Service string `json:"service,omitempty"`
 
-	*QDiscEventSerializer `json:"qdisc,omitempty"`
+	*KernelEventSerializer      `json:"event,omitempty"`
+	*ProcessContextSerializer   `json:"process,omitempty"`
+	*NetworkInterfaceSerializer `json:"network_interface,omitempty"`
+	*NetlinkMessageSerializer   `json:"netlink_message,omitempty"`
+
+	*QDiscSerializer  `json:"qdisc,omitempty"`
+	*ChainSerializer  `json:"chain,omitempty"`
+	*BlockSerializer  `json:"block,omitempty"`
+	*FilterSerializer `json:"filter,omitempty"`
 }
 
 // NewEventSerializer returns a new EventSerializer instance for the provided Event
 func NewEventSerializer(event *Event) *EventSerializer {
 	serializer := &EventSerializer{
-		KernelEventSerializer:    NewKernelEventSerializer(&event.Kernel),
-		ProcessContextSerializer: NewProcessContextSerializer(&event.Process),
+		Service:                    "tcprobe",
+		KernelEventSerializer:      NewKernelEventSerializer(&event.Kernel),
+		ProcessContextSerializer:   NewProcessContextSerializer(&event.Process),
+		NetworkInterfaceSerializer: NewNetworkInterfaceSerializer(&event.NetworkInterface),
+		NetlinkMessageSerializer:   NewNetlinkMessageSerializer(&event.NetlinkMessage),
 	}
 
 	switch event.Kernel.Type {
 	case QDiscEventType:
-		serializer.QDiscEventSerializer = NewQDiscEventSerializer(&event.QDiscEvent)
+		serializer.QDiscSerializer = NewQDiscSerializer(&event.QDisc)
+	case FilterEventType:
+		serializer.QDiscSerializer = NewQDiscSerializer(&event.QDisc)
+		serializer.ChainSerializer = NewChainSerializer(&event.Chain)
+		serializer.BlockSerializer = NewBlockSerializer(&event.Block)
+		serializer.FilterSerializer = NewFilterSerializer(&event.Filter)
 	}
 	return serializer
 }

@@ -8,30 +8,26 @@
 #ifndef _QDISC_H_
 #define _QDISC_H_
 
-#define NLMSG_ALIGNTO	 4U
-#define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
-#define NLMSG_HDRLEN	 ((int) NLMSG_ALIGN(sizeof(struct nlmsghdr)))
-
-#define TC_H_ROOT	     (0xFFFFFFFFU)
-#define TC_H_INGRESS     (0xFFFFFFF1U)
-
 struct qdisc_t {
-    u32 netns;
-    u32 ifindex;
-    char ifname[IFNAMSIZ];
-
     u32 handle;
     u32 parent;
     char qdisc_id[IFNAMSIZ];
-
-    u16 nlmsg_type;
-    u16 nlmsg_flags;
-    u32 padding;
 };
 
-struct qdisc_ctx_t {
-    struct qdisc_t qdisc;
+__attribute__((always_inline)) void fill_qdisc(struct Qdisc *q, struct qdisc_t *qdisc) {
+    BPF_CORE_READ_INTO(&qdisc->qdisc_id, q, ops, id);
+    BPF_CORE_READ_INTO(&qdisc->handle, q, handle);
+    BPF_CORE_READ_INTO(&qdisc->parent, q, parent);
+}
 
+struct qdisc_netlink_msg_t {
+    struct network_interface_t netif;
+    struct netlink_message_t netlink;
+    struct qdisc_t qdisc;
+};
+
+struct qdisc_cache_t {
+    struct qdisc_netlink_msg_t msg;
     struct netlink_ext_ack *extack;
 };
 
@@ -40,35 +36,33 @@ struct qdisc_ctx_t {
 struct qdisc_event_t {
     struct kernel_event_t event;
     struct process_context_t process;
-    struct qdisc_t qdisc;
-    char netlink_error_msg[NETLINK_ERROR_MSG_LEN];
+    struct qdisc_netlink_msg_t msg;
 };
 
 memory_factory(qdisc_event)
-cache_factory(qdisc_ctx, 1024)
+cache_factory(qdisc_cache, 1024)
 
 SEC("kprobe/tc_modify_qdisc")
 int BPF_KPROBE(kprobe_tc_modify_qdisc, struct sk_buff *skb, struct nlmsghdr *n, struct netlink_ext_ack *extack) {
-    struct qdisc_ctx_t entry = {
+    struct qdisc_cache_t entry = {
         .extack = extack,
     };
 
     // parse request parameters
-    BPF_CORE_READ_INTO(&entry.qdisc.netns, skb, sk, __sk_common.skc_net.net, ns.inum);
+    BPF_CORE_READ_INTO(&entry.msg.netif.netns, skb, sk, __sk_common.skc_net.net, ns.inum);
     struct tcmsg *tcm =(struct tcmsg *)((unsigned char *)n + NLMSG_HDRLEN);
-    BPF_CORE_READ_INTO(&entry.qdisc.ifindex, tcm, tcm_ifindex);
-    BPF_CORE_READ_INTO(&entry.qdisc.handle, tcm, tcm_handle);
-    BPF_CORE_READ_INTO(&entry.qdisc.parent, tcm, tcm_parent);
-    BPF_CORE_READ_INTO(&entry.qdisc.nlmsg_type, n, nlmsg_type);
-    BPF_CORE_READ_INTO(&entry.qdisc.nlmsg_flags, n, nlmsg_flags);
+    BPF_CORE_READ_INTO(&entry.msg.netif.ifindex, tcm, tcm_ifindex);
+    BPF_CORE_READ_INTO(&entry.msg.qdisc.handle, tcm, tcm_handle);
+    BPF_CORE_READ_INTO(&entry.msg.qdisc.parent, tcm, tcm_parent);
+    fill_netlink_message(n, &entry.msg.netlink);
 
-    cache_qdisc_ctx(&entry);
+    put_qdisc_cache(&entry);
     return 0;
 }
 
 SEC("kretprobe/__dev_get_by_index")
 int BPF_KRETPROBE(kretprobe___dev_get_by_index, struct net_device *dev) {
-    struct qdisc_ctx_t *entry = peek_qdisc_ctx();
+    struct qdisc_cache_t *entry = peek_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -78,22 +72,21 @@ int BPF_KRETPROBE(kretprobe___dev_get_by_index, struct net_device *dev) {
     }
 
     // read interface name
-    BPF_CORE_READ_INTO(&entry->qdisc.ifname, dev, name);
-    BPF_CORE_READ_INTO(&entry->qdisc.ifindex, dev, ifindex);
+    fill_netif(dev, &entry->msg.netif);
 
-    if (entry->qdisc.parent == TC_H_ROOT) {
+    if (entry->msg.qdisc.parent == TC_H_ROOT) {
         struct Qdisc *q = NULL;
         BPF_CORE_READ_INTO(&q, dev, qdisc);
-        BPF_CORE_READ_INTO(&entry->qdisc.qdisc_id, q, ops, id);
-        BPF_CORE_READ_INTO(&entry->qdisc.handle, q, handle);
-        BPF_CORE_READ_INTO(&entry->qdisc.parent, q, parent);
+        if (q != NULL) {
+            fill_qdisc(q, &entry->msg.qdisc);
+        }
     }
     return 0;
 }
 
 SEC("kretprobe/qdisc_create")
 int BPF_KRETPROBE(kretprobe_qdisc_create, struct Qdisc *q) {
-    struct qdisc_ctx_t *entry = peek_qdisc_ctx();
+    struct qdisc_cache_t *entry = peek_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -103,15 +96,13 @@ int BPF_KRETPROBE(kretprobe_qdisc_create, struct Qdisc *q) {
     }
 
     // read qdisc identification values
-    BPF_CORE_READ_INTO(&entry->qdisc.qdisc_id, q, ops, id);
-    BPF_CORE_READ_INTO(&entry->qdisc.handle, q, handle);
-    BPF_CORE_READ_INTO(&entry->qdisc.parent, q, parent);
+    fill_qdisc(q, &entry->msg.qdisc);
     return 0;
 }
 
 SEC("kretprobe/dev_ingress_queue_create")
 int BPF_KRETPROBE(kretprobe_dev_ingress_queue_create, struct netdev_queue *queue) {
-    struct qdisc_ctx_t *entry = peek_qdisc_ctx();
+    struct qdisc_cache_t *entry = peek_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -123,15 +114,13 @@ int BPF_KRETPROBE(kretprobe_dev_ingress_queue_create, struct netdev_queue *queue
     // read qdisc identification values
     struct Qdisc *q = NULL;
     BPF_CORE_READ_INTO(&q, queue, qdisc_sleeping);
-    BPF_CORE_READ_INTO(&entry->qdisc.qdisc_id, q, ops, id);
-    BPF_CORE_READ_INTO(&entry->qdisc.handle, q, handle);
-    BPF_CORE_READ_INTO(&entry->qdisc.parent, q, parent);
+    fill_qdisc(q, &entry->msg.qdisc);
     return 0;
 }
 
 SEC("kretprobe/qdisc_lookup")
 int BPF_KRETPROBE(kretprobe_qdisc_lookup, struct Qdisc *q) {
-    struct qdisc_ctx_t *entry = peek_qdisc_ctx();
+    struct qdisc_cache_t *entry = peek_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -141,15 +130,13 @@ int BPF_KRETPROBE(kretprobe_qdisc_lookup, struct Qdisc *q) {
     }
 
     // read qdisc identification values
-    BPF_CORE_READ_INTO(&entry->qdisc.qdisc_id, q, ops, id);
-    BPF_CORE_READ_INTO(&entry->qdisc.handle, q, handle);
-    BPF_CORE_READ_INTO(&entry->qdisc.parent, q, parent);
+    fill_qdisc(q, &entry->msg.qdisc);
     return 0;
 }
 
 SEC("kretprobe/qdisc_leaf")
 int BPF_KRETPROBE(kretprobe_qdisc_leaf, struct Qdisc *q) {
-    struct qdisc_ctx_t *entry = peek_qdisc_ctx();
+    struct qdisc_cache_t *entry = peek_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -159,15 +146,13 @@ int BPF_KRETPROBE(kretprobe_qdisc_leaf, struct Qdisc *q) {
     }
 
     // read qdisc identification values
-    BPF_CORE_READ_INTO(&entry->qdisc.qdisc_id, q, ops, id);
-    BPF_CORE_READ_INTO(&entry->qdisc.handle, q, handle);
-    BPF_CORE_READ_INTO(&entry->qdisc.parent, q, parent);
+    fill_qdisc(q, &entry->msg.qdisc);
     return 0;
 }
 
 SEC("kretprobe/tc_modify_qdisc")
 int BPF_KRETPROBE(kretprobe_tc_modify_qdisc, int retval) {
-    struct qdisc_ctx_t *entry = pop_qdisc_ctx();
+    struct qdisc_cache_t *entry = pop_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -179,48 +164,43 @@ int BPF_KRETPROBE(kretprobe_tc_modify_qdisc, int retval) {
     }
     event->event.type = EVENT_QDISC;
     event->event.retval = retval;
-    event->qdisc = entry->qdisc;
+    event->msg = entry->msg;
     fill_process_context(&event->process);
 
-    u8 error_msg_len = 0;
     if (retval < 0) {
 
         // TODO: on failure, fallback to TCA variable attributes in order to help debug invalid input parameters.
         // See "RTM_NEWQDISC, RTM_DELQDISC, RTM_GETQDISC" at https://man7.org/linux/man-pages/man7/rtnetlink.7.html
 
-        char *msg = 0;
-        struct netlink_ext_ack *extack = entry->extack;
-        BPF_CORE_READ_INTO(&msg, extack, _msg);
-        error_msg_len = bpf_probe_read_str(event->netlink_error_msg, sizeof(event->netlink_error_msg), msg);
+        copy_netlink_error(entry->extack, &event->msg.netlink);
     }
 
     int perf_ret;
-    send_event_with_size_ptr_perf(ctx, event->event.type, event, offsetof(struct qdisc_event_t, netlink_error_msg) + (error_msg_len & (NETLINK_ERROR_MSG_LEN - 1)));
+    send_event_ptr(ctx, event->event.type, event);
     return 0;
 }
 
 SEC("kprobe/tc_get_qdisc")
 int BPF_KPROBE(kprobe_tc_get_qdisc, struct sk_buff *skb, struct nlmsghdr *n, struct netlink_ext_ack *extack) {
-    struct qdisc_ctx_t entry = {
+    struct qdisc_cache_t entry = {
         .extack = extack,
     };
 
     // parse request parameters
-    BPF_CORE_READ_INTO(&entry.qdisc.netns, skb, sk, __sk_common.skc_net.net, ns.inum);
+    BPF_CORE_READ_INTO(&entry.msg.netif.netns, skb, sk, __sk_common.skc_net.net, ns.inum);
     struct tcmsg *tcm =(struct tcmsg *)((unsigned char *)n + NLMSG_HDRLEN);
-    BPF_CORE_READ_INTO(&entry.qdisc.ifindex, tcm, tcm_ifindex);
-    BPF_CORE_READ_INTO(&entry.qdisc.handle, tcm, tcm_handle);
-    BPF_CORE_READ_INTO(&entry.qdisc.parent, tcm, tcm_parent);
-    BPF_CORE_READ_INTO(&entry.qdisc.nlmsg_type, n, nlmsg_type);
-    BPF_CORE_READ_INTO(&entry.qdisc.nlmsg_flags, n, nlmsg_flags);
+    BPF_CORE_READ_INTO(&entry.msg.netif.ifindex, tcm, tcm_ifindex);
+    BPF_CORE_READ_INTO(&entry.msg.qdisc.handle, tcm, tcm_handle);
+    BPF_CORE_READ_INTO(&entry.msg.qdisc.parent, tcm, tcm_parent);
+    fill_netlink_message(n, &entry.msg.netlink);
 
-    cache_qdisc_ctx(&entry);
+    put_qdisc_cache(&entry);
     return 0;
 }
 
 SEC("kprobe/qdisc_destroy")
 int BPF_KPROBE(kprobe_qdisc_destroy, struct Qdisc *q) {
-    struct qdisc_ctx_t *entry = peek_qdisc_ctx();
+    struct qdisc_cache_t *entry = peek_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -230,15 +210,13 @@ int BPF_KPROBE(kprobe_qdisc_destroy, struct Qdisc *q) {
     }
 
     // read qdisc identification values
-    BPF_CORE_READ_INTO(&entry->qdisc.qdisc_id, q, ops, id);
-    BPF_CORE_READ_INTO(&entry->qdisc.handle, q, handle);
-    BPF_CORE_READ_INTO(&entry->qdisc.parent, q, parent);
+    fill_qdisc(q, &entry->msg.qdisc);
     return 0;
 }
 
 SEC("kretprobe/tc_get_qdisc")
 int BPF_KRETPROBE(kretprobe_tc_get_qdisc, int retval) {
-    struct qdisc_ctx_t *entry = pop_qdisc_ctx();
+    struct qdisc_cache_t *entry = pop_qdisc_cache();
     if (entry == NULL) {
         return 0;
     }
@@ -250,23 +228,19 @@ int BPF_KRETPROBE(kretprobe_tc_get_qdisc, int retval) {
     }
     event->event.type = EVENT_QDISC;
     event->event.retval = retval;
-    event->qdisc = entry->qdisc;
+    event->msg = entry->msg;
     fill_process_context(&event->process);
 
-    u8 error_msg_len = 0;
     if (retval < 0) {
 
         // TODO: on failure, fallback to TCA variable attributes in order to help debug invalid input parameters.
         // See "RTM_NEWQDISC, RTM_DELQDISC, RTM_GETQDISC" at https://man7.org/linux/man-pages/man7/rtnetlink.7.html
 
-        char *msg = 0;
-        struct netlink_ext_ack *extack = entry->extack;
-        BPF_CORE_READ_INTO(&msg, extack, _msg);
-        error_msg_len = bpf_probe_read_str(event->netlink_error_msg, sizeof(event->netlink_error_msg), msg);
+        copy_netlink_error(entry->extack, &event->msg.netlink);
     }
 
     int perf_ret;
-    send_event_with_size_ptr_perf(ctx, event->event.type, event, offsetof(struct qdisc_event_t, netlink_error_msg) + (error_msg_len & (NETLINK_ERROR_MSG_LEN - 1)));
+    send_event_ptr(ctx, event->event.type, event);
     return 0;
 }
 

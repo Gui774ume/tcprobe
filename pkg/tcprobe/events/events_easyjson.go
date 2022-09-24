@@ -28,7 +28,12 @@ func easyjson692db02bDecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 	}
 	out.KernelEventSerializer = new(KernelEventSerializer)
 	out.ProcessContextSerializer = new(ProcessContextSerializer)
-	out.QDiscEventSerializer = new(QDiscEventSerializer)
+	out.NetworkInterfaceSerializer = new(NetworkInterfaceSerializer)
+	out.NetlinkMessageSerializer = new(NetlinkMessageSerializer)
+	out.QDiscSerializer = new(QDiscSerializer)
+	out.ChainSerializer = new(ChainSerializer)
+	out.BlockSerializer = new(BlockSerializer)
+	out.FilterSerializer = new(FilterSerializer)
 	in.Delim('{')
 	for !in.IsDelim('}') {
 		key := in.UnsafeFieldName(false)
@@ -39,6 +44,8 @@ func easyjson692db02bDecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 			continue
 		}
 		switch key {
+		case "service":
+			out.Service = string(in.String())
 		case "event":
 			if in.IsNull() {
 				in.Skip()
@@ -59,15 +66,65 @@ func easyjson692db02bDecodeGithubComGui774umeTcprobePkgTcprobeEvents(in *jlexer.
 				}
 				(*out.ProcessContextSerializer).UnmarshalEasyJSON(in)
 			}
+		case "network_interface":
+			if in.IsNull() {
+				in.Skip()
+				out.NetworkInterfaceSerializer = nil
+			} else {
+				if out.NetworkInterfaceSerializer == nil {
+					out.NetworkInterfaceSerializer = new(NetworkInterfaceSerializer)
+				}
+				(*out.NetworkInterfaceSerializer).UnmarshalEasyJSON(in)
+			}
+		case "netlink_message":
+			if in.IsNull() {
+				in.Skip()
+				out.NetlinkMessageSerializer = nil
+			} else {
+				if out.NetlinkMessageSerializer == nil {
+					out.NetlinkMessageSerializer = new(NetlinkMessageSerializer)
+				}
+				(*out.NetlinkMessageSerializer).UnmarshalEasyJSON(in)
+			}
 		case "qdisc":
 			if in.IsNull() {
 				in.Skip()
-				out.QDiscEventSerializer = nil
+				out.QDiscSerializer = nil
 			} else {
-				if out.QDiscEventSerializer == nil {
-					out.QDiscEventSerializer = new(QDiscEventSerializer)
+				if out.QDiscSerializer == nil {
+					out.QDiscSerializer = new(QDiscSerializer)
 				}
-				(*out.QDiscEventSerializer).UnmarshalEasyJSON(in)
+				(*out.QDiscSerializer).UnmarshalEasyJSON(in)
+			}
+		case "chain":
+			if in.IsNull() {
+				in.Skip()
+				out.ChainSerializer = nil
+			} else {
+				if out.ChainSerializer == nil {
+					out.ChainSerializer = new(ChainSerializer)
+				}
+				(*out.ChainSerializer).UnmarshalEasyJSON(in)
+			}
+		case "block":
+			if in.IsNull() {
+				in.Skip()
+				out.BlockSerializer = nil
+			} else {
+				if out.BlockSerializer == nil {
+					out.BlockSerializer = new(BlockSerializer)
+				}
+				(*out.BlockSerializer).UnmarshalEasyJSON(in)
+			}
+		case "filter":
+			if in.IsNull() {
+				in.Skip()
+				out.FilterSerializer = nil
+			} else {
+				if out.FilterSerializer == nil {
+					out.FilterSerializer = new(FilterSerializer)
+				}
+				(*out.FilterSerializer).UnmarshalEasyJSON(in)
 			}
 		default:
 			in.SkipRecursive()
@@ -83,10 +140,20 @@ func easyjson692db02bEncodeGithubComGui774umeTcprobePkgTcprobeEvents(out *jwrite
 	out.RawByte('{')
 	first := true
 	_ = first
-	if in.KernelEventSerializer != nil {
-		const prefix string = ",\"event\":"
+	if in.Service != "" {
+		const prefix string = ",\"service\":"
 		first = false
 		out.RawString(prefix[1:])
+		out.String(string(in.Service))
+	}
+	if in.KernelEventSerializer != nil {
+		const prefix string = ",\"event\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
 		(*in.KernelEventSerializer).MarshalEasyJSON(out)
 	}
 	if in.ProcessContextSerializer != nil {
@@ -99,7 +166,27 @@ func easyjson692db02bEncodeGithubComGui774umeTcprobePkgTcprobeEvents(out *jwrite
 		}
 		(*in.ProcessContextSerializer).MarshalEasyJSON(out)
 	}
-	if in.QDiscEventSerializer != nil {
+	if in.NetworkInterfaceSerializer != nil {
+		const prefix string = ",\"network_interface\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		(*in.NetworkInterfaceSerializer).MarshalEasyJSON(out)
+	}
+	if in.NetlinkMessageSerializer != nil {
+		const prefix string = ",\"netlink_message\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		(*in.NetlinkMessageSerializer).MarshalEasyJSON(out)
+	}
+	if in.QDiscSerializer != nil {
 		const prefix string = ",\"qdisc\":"
 		if first {
 			first = false
@@ -107,7 +194,37 @@ func easyjson692db02bEncodeGithubComGui774umeTcprobePkgTcprobeEvents(out *jwrite
 		} else {
 			out.RawString(prefix)
 		}
-		(*in.QDiscEventSerializer).MarshalEasyJSON(out)
+		(*in.QDiscSerializer).MarshalEasyJSON(out)
+	}
+	if in.ChainSerializer != nil {
+		const prefix string = ",\"chain\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		(*in.ChainSerializer).MarshalEasyJSON(out)
+	}
+	if in.BlockSerializer != nil {
+		const prefix string = ",\"block\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		(*in.BlockSerializer).MarshalEasyJSON(out)
+	}
+	if in.FilterSerializer != nil {
+		const prefix string = ",\"filter\":"
+		if first {
+			first = false
+			out.RawString(prefix[1:])
+		} else {
+			out.RawString(prefix)
+		}
+		(*in.FilterSerializer).MarshalEasyJSON(out)
 	}
 	out.RawByte('}')
 }

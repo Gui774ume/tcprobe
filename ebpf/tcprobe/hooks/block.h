@@ -5,14 +5,17 @@
  * modify it under the terms of version 2 of the GNU General Public
  * License as published by the Free Software Foundation.
  */
-#ifndef _ALL_HOOKS_H__
-#define _ALL_HOOKS_H__
+#ifndef _BLOCK_H__
+#define _BLOCK_H__
 
-#include "network_interface.h"
-#include "netlink_message.h"
-#include "block.h"
-#include "chain.h"
-#include "qdisc.h"
-#include "filter.h"
+struct block_t {
+    u32 index;
+    u32 classid;
+};
+
+__attribute__((always_inline)) void fill_block(struct tcf_block *b, struct block_t *block) {
+    BPF_CORE_READ_INTO(&block->index, b, index);
+    BPF_CORE_READ_INTO(&block->classid, b, classid);
+}
 
 #endif
