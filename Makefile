@@ -12,9 +12,6 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 build-ebpf-programs:
 	mkdir -p ebpf/assets/bin
 	clang-14 \
-		-D__KERNEL__ \
-		-DCONFIG_64BIT \
-		-D__ASM_SYSREG_H \
 		-D__TARGET_ARCH_$(SUBARCH) \
 		-D__BPF_TRACING__ \
 		-DKBUILD_MODNAME=\"tcprobe\" \
