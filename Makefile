@@ -2,21 +2,25 @@ all: build-ebpf build install
 
 build-ebpf: build-ebpf-programs generate
 
+SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
+				  -e s/sun4u/sparc64/ \
+				  -e s/arm.*/arm/ -e s/sa110/arm/ \
+				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
+				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
+				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
+
 build-ebpf-programs:
 	mkdir -p ebpf/assets/bin
-	clang-14 -D__KERNEL__ -DCONFIG_64BIT -D__ASM_SYSREG_H -D__x86_64__ -D__BPF_TRACING__ -DKBUILD_MODNAME=\"tcprobe\" \
+	clang-14 \
+		-D__TARGET_ARCH_$(SUBARCH) \
+		-D__BPF_TRACING__ \
+		-DKBUILD_MODNAME=\"tcprobe\" \
 		-Wno-unused-value \
 		-Wno-pointer-sign \
 		-Wno-compare-distinct-pointer-types \
 		-Wunused \
 		-Wall \
 		-Werror \
-		-I/lib/modules/$$(uname -r)/build/include \
-		-I/lib/modules/$$(uname -r)/build/include/uapi \
-		-I/lib/modules/$$(uname -r)/build/include/generated/uapi \
-		-I/lib/modules/$$(uname -r)/build/arch/x86/include \
-		-I/lib/modules/$$(uname -r)/build/arch/x86/include/uapi \
-		-I/lib/modules/$$(uname -r)/build/arch/x86/include/generated \
 		-c -O2 -g -target bpf \
 		ebpf/main.c \
 		-o ebpf/assets/bin/probe.o

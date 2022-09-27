@@ -16,10 +16,16 @@
 #pragma clang diagnostic ignored "-Wgnu-variable-sized-type-not-at-end"
 #pragma clang diagnostic ignored "-Wframe-address"
 
-#include "vmlinux.h"
+#if defined(__TARGET_ARCH_x86)
+#include "vmlinux_x86.h"
+#elif defined(__TARGET_ARCH_arm64)
+#include "vmlinux_arm64.h"
+#else
+#error "No vmlinux.h available for this __TARGET_ARCH_xx"
+#endif
+
 #include "bpf_helpers.h"
 #include "bpf_tracing.h"
-#include <errno.h>
 
 #pragma clang diagnostic pop
 
