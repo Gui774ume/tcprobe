@@ -40,4 +40,35 @@
         return bpf_map_update_elem(&NAME##_cache, &key, entry, BPF_ANY);                                               \
     };                                                                                                                 \
 
+#define map_factory(NAME, KEY, VALUE, MAP_TYPE, SIZE)                                                                  \
+                                                                                                                       \
+    struct {                                                                                                           \
+	    __uint(type, MAP_TYPE);                                                                                        \
+	    __type(key, struct KEY##_t);                                                                                   \
+	    __type(value, struct VALUE##_t);                                                                               \
+	    __uint(max_entries, SIZE);                                                                                     \
+    } NAME SEC(".maps");                                                                                               \
+                                                                                                                       \
+    __attribute__((always_inline)) struct VALUE##_t *peek_##NAME(struct KEY##_t *key) {                                \
+        struct VALUE##_t *elem = bpf_map_lookup_elem(&NAME, key);                                                      \
+        return elem;                                                                                                   \
+    };                                                                                                                 \
+                                                                                                                       \
+    __attribute__((always_inline)) struct VALUE##_t *pop_##NAME(struct KEY##_t *key) {                                 \
+        struct VALUE##_t *elem = bpf_map_lookup_elem(&NAME, key);                                                      \
+        if (elem == NULL) {                                                                                            \
+            return NULL;                                                                                               \
+        }                                                                                                              \
+        bpf_map_delete_elem(&NAME, key);                                                                               \
+        return elem;                                                                                                   \
+    };                                                                                                                 \
+                                                                                                                       \
+    __attribute__((always_inline)) int put_##NAME(struct KEY##_t *key, struct VALUE##_t *entry) {                      \
+        return bpf_map_update_elem(&NAME, key, entry, BPF_ANY);                                                        \
+    };                                                                                                                 \
+
+
+#define hashmap_factory(NAME, KEY, VALUE, SIZE) map_factory(NAME, KEY, VALUE, BPF_MAP_TYPE_HASH, SIZE)
+#define lru_factory(NAME, KEY, VALUE, SIZE)     map_factory(NAME, KEY, VALUE, BPF_MAP_TYPE_HASH, SIZE)
+
 #endif
